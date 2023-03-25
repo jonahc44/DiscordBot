@@ -5,8 +5,7 @@ import * as Builder from '@discordjs/builders';
 import ytdl from 'ytdl-core';
 import search from 'yt-search';
 import SpotifyWebApi from 'spotify-web-api-node';
-import fs from 'node:fs';
-import cluster from 'node:cluster';
+import { fork } from 'node:child_process';
 
 export class MyClient extends Discord.Client {
     constructor(options: Discord.ClientOptions) {
@@ -276,10 +275,10 @@ export async function updateMenuRow(serverQueue: Queue, update = true) {
 }
 
 export async function prepAudio(interaction: Discord.BaseInteraction, serverQueue: Queue) {
-    if (!fs.existsSync(`./guilds/${interaction.guild?.id}/next_audio.mp4`) && fs.existsSync(`./guilds/${interaction.guild?.id}/audio.mp4`)) {
-        const song = serverQueue.songs[1];
-        const stream = await song.getStream();
-        stream.pipe(fs.createWriteStream(`./guilds/${interaction.guild?.id}/next_audio.mp4`));
-
-    }
+    // Prepping audio using child labor to improve performance
+    const childProcess = fork('./prepAudio.mjs');
+    const guildId = interaction.guildId;
+    childProcess.send(
+        {song: serverQueue.songs[1], id: guildId}
+    );
 }

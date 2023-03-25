@@ -25,34 +25,21 @@ export const data = new SlashCommandBuilder()
     )
 
 async function rmCurrentSong(interaction: ChatInputCommandInteraction) {
-    const guildId = interaction.guild?.id;
+    const guildId = interaction.guildId;
     const audio = `./guilds/${guildId}/audio.mp4`;
 
-    if (fs.existsSync(audio)) {
+    if (fs.existsSync(audio)) 
         await fs.promises.unlink(audio)
-            .catch(async err => {
-                console.error(err);
-                await delay(100);
-                await rmCurrentSong(interaction);
-                return;
-            })
-        }
 }
 
 async function rmGuildSongs(interaction: ChatInputCommandInteraction) {
-    const guildId = interaction.guild?.id;
+    const guildId = interaction.guildId;
     const nextAudio = `./guilds/${guildId}/next_audio.mp4`;
 
     await rmCurrentSong(interaction);
     
     if (fs.existsSync(nextAudio))
             await fs.promises.unlink(nextAudio)
-            .catch(async err => {
-                console.error(err);
-                await delay(100);
-                await rmGuildSongs(interaction);
-                return;
-            })
 }
 
 async function setup(interaction: ChatInputCommandInteraction, serverQueue: Queue) {
@@ -157,9 +144,10 @@ async function setup(interaction: ChatInputCommandInteraction, serverQueue: Queu
 }
 
 async function play(interaction: ChatInputCommandInteraction, serverQueue: Queue) {
-    const guildId = interaction.guild?.id;
+    const guildId = interaction.guildId;
     const song = serverQueue.songs[0];
     const audioFile = `./guilds/${guildId}/audio.mp4`;
+    const stream = await song.getStream();
     let resource = createAudioResource(audioFile, {
         inputType: StreamType.Raw
     });
@@ -168,26 +156,22 @@ async function play(interaction: ChatInputCommandInteraction, serverQueue: Queue
 
     if (!song.getLoop()) {
         const nextAudio = `./guilds/${guildId}/next_audio.mp4`;
-        // Replace current audio file with the next file
+        
         if (fs.existsSync(nextAudio)) {
             await rmCurrentSong(interaction);
-            fs.rename(nextAudio, audioFile, function(err) {
+            fs.rename(nextAudio, audioFile, function (err) {
                 if (err) console.error(err);
-            });
+            })
+        } else {
+            stream.pipe(fs.createWriteStream(audioFile));
+            await delay(2750);
         }
 
-        const stream = await song.getStream();
-        stream.pipe(fs.createWriteStream(audioFile));
-
-        if (!fs.existsSync(nextAudio))
-            await delay(3000);
-        
         resource = createAudioResource(audioFile, {
             inputType: StreamType.Raw
         });
     }
 
-    resource.volume?.setVolume(0.5);
     serverQueue.player?.play(resource);
 
     if (song.getLoop()) return;
@@ -244,7 +228,9 @@ async function play(interaction: ChatInputCommandInteraction, serverQueue: Queue
     }
 
     // Get next song ready for improved performance
-    if (serverQueue.songs.length > 1) prepAudio(interaction, serverQueue);
+    if (serverQueue.songs.length > 1) {
+        await prepAudio(interaction, serverQueue);
+    }
 }
 
 export async function execute(interaction: ChatInputCommandInteraction, serverQueue: Queue) {
