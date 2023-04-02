@@ -1,4 +1,5 @@
 import { SlashCommandBuilder, BaseInteraction, StringSelectMenuInteraction, bold, ChatInputCommandInteraction, CacheType } from "discord.js";
+import fs from 'node:fs';
 import { updateMenuRow, Queue, prepAudio } from "../exports.js";
 
 export const data = new SlashCommandBuilder()
@@ -41,6 +42,10 @@ export async function execute(interaction: BaseInteraction, serverQueue: Queue) 
     if (interaction.isStringSelectMenu()) {
         const int = interaction as StringSelectMenuInteraction;
         args = [Number(int.values[0])];
+
+        if (args[0] === 1 && fs.existsSync(`./guilds/${interaction.guildId}/next_audio.mp4`)) 
+            await fs.promises.unlink(`./guilds/${interaction.guildId}/next_audio.mp4`);
+
         await int.reply(`${bold(serverQueue.songs[args[0]].title)} has been removed from the queue`);
         serverQueue.songs.splice(args[0], 1);
         serverQueue.songs.filter(x => x !== undefined);
@@ -67,18 +72,33 @@ export async function execute(interaction: BaseInteraction, serverQueue: Queue) 
     args = args.sort((a, b) => b - a);
 
     for (let i = 0; i < args.length; i++) {
+        if (args[i] === 1 && fs.existsSync(`./guilds/${interaction.guildId}/next_audio.mp4`)) 
+            await fs.promises.unlink(`./guilds/${interaction.guildId}/next_audio.mp4`);
+
         const song = serverQueue.songs[args[i]];
 
         if (!serverQueue.songs[args[i]]) 
-            await int.followUp({
-                content: `${args[i]} is an invalid number`,
-                ephemeral: true
-            });
+            if (int.replied)
+                await int.followUp({
+                    content: `${args[i]} is an invalid number`,
+                    ephemeral: true
+                });
+            else 
+                await int.reply({
+                    content: `${args[i]} is an invalid number`,
+                    ephemeral: true
+                });
         else {
-            await int.followUp({
-                content: `${bold(song.title)} has been removed from the queue`,
-                ephemeral: false
-            })
+            if (int.replied)
+                await int.followUp({
+                    content: `${bold(song.title)} has been removed from the queue`,
+                    ephemeral: false
+                })
+            else
+                await int.reply({
+                    content: `${bold(song.title)} has been removed from the queue`,
+                    ephemeral: false
+                })
 
             serverQueue.songs.splice(args[i], 1);
             serverQueue.songs.filter(x => x !== undefined);

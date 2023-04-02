@@ -3,7 +3,7 @@ import { AudioPlayerStatus, VoiceConnectionStatus } from '@discordjs/voice';
 import * as Discord from 'discord.js';
 import * as fs from 'node:fs';
 import * as dotenv from 'dotenv';
-import { Button, Queue, MyClient } from './exports.js';
+import { Button, Queue, MyClient, delay } from './exports.js';
 import * as remove from './commands/remove.js';
 
 dotenv.config();
@@ -175,7 +175,10 @@ client.on(Events.InteractionCreate, async interaction => {
                     serverQueue.webhook = webhook;
             })
         }
-    await command.execute(interaction, serverQueue);
+    await command.execute(interaction, serverQueue)
+        .then(async () => {
+            await delay(100);
+        })
 })
 
 // Button interaction listener
@@ -215,7 +218,10 @@ client.on(Events.InteractionCreate, async interaction => {
         command = client.commands.get(interaction.customId);
     }
 
-    command.execute(interaction, serverQueue);
+    await command.execute(interaction, serverQueue)
+        .then(async () => {
+            await delay(100);
+        })
 })
 
 // Select menu interaction listener
@@ -226,7 +232,10 @@ client.on(Events.InteractionCreate, async interaction => {
     if (!guildId) return;
     const serverQueue = queue.get(guildId);
     if (!serverQueue) return;
-    remove.execute(interaction, serverQueue);
+    await remove.execute(interaction, serverQueue)
+        .then(async () => {
+            await delay(100);
+        })
 })
 
 // Delete audio files when program closes

@@ -1,4 +1,11 @@
-import { SlashCommandBuilder, ChatInputCommandInteraction, bold, ButtonInteraction, TextChannel, ButtonStyle } from "discord.js";
+import { 
+    SlashCommandBuilder, 
+    ChatInputCommandInteraction, 
+    bold, 
+    ButtonInteraction, 
+    TextChannel, 
+    ButtonStyle 
+} from "discord.js";
 import { AudioPlayerStatus } from "@discordjs/voice";
 import { updateMenuRow, Queue } from "../exports.js";
 
@@ -46,7 +53,6 @@ export async function execute(interaction: ChatInputCommandInteraction, serverQu
 
     if (interaction.isButton()) {
         const int = interaction as ButtonInteraction;
-        const channel = int.channel as TextChannel;
         int.reply(`${bold(song.title)} has been skipped`);
     } else
         await interaction.reply(`${bold(song.title)} has been skipped`);
@@ -60,5 +66,6 @@ export async function execute(interaction: ChatInputCommandInteraction, serverQu
     if (serverQueue.player.state.status === AudioPlayerStatus.Paused)
         serverQueue.player.unpause();
     
+    serverQueue.buttons.playPauseButton.setEmoji('⏸️');
     serverQueue.player.stop();
 }

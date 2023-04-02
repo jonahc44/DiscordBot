@@ -1,5 +1,5 @@
 import { AudioPlayerStatus } from '@discordjs/voice';
-import { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js';
+import { ChatInputCommandInteraction, SlashCommandBuilder, bold } from 'discord.js';
 import { Queue, updateMessage } from '../exports.js';
 
 export const data = new SlashCommandBuilder()
@@ -21,6 +21,6 @@ export async function execute(interaction: ChatInputCommandInteraction, serverQu
     let button = serverQueue.buttons.playPauseButton;
     button = button.setEmoji('▶️');
 
-    await interaction.reply(`**${serverQueue.songs[0].title}** has been paused`);
+    await interaction.reply(`${bold(serverQueue.songs[0].title)} has been paused`);
     await updateMessage(serverQueue);
 }

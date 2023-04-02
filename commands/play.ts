@@ -10,9 +10,16 @@ StreamType
 import ytdl from 'ytdl-core';
 import ytpl from 'ytpl';
 import * as fs from 'node:fs';
-import { Queue, Song, Spotify, prepAudio, updateMenuRow, updateMessage } from '../exports.js';
-
-const delay = async (ms: number | undefined) => new Promise(resolve => setTimeout(resolve, ms));
+import { 
+    Queue, 
+    Song, 
+    Spotify, 
+    prepAudio, 
+    updateMenuRow,
+    updateMessage, 
+    addPlaylist,
+    delay 
+} from '../exports.js';
 
 export const data = new SlashCommandBuilder()
     .setName('play')
@@ -101,8 +108,10 @@ async function setup(interaction: ChatInputCommandInteraction, serverQueue: Queu
                         await updateMessage(serverQueue);
                         await rmGuildSongs(interaction);
                     }
+                    await delay(250);
+                } else {
+                    await play(interaction, serverQueue);
                 }
-                await delay(250);
             })
 
             serverQueue.player.on(AudioPlayerStatus.Idle || AudioPlayerStatus.Paused || AudioPlayerStatus.AutoPaused, async () => {
@@ -147,7 +156,6 @@ async function play(interaction: ChatInputCommandInteraction, serverQueue: Queue
     const guildId = interaction.guildId;
     const song = serverQueue.songs[0];
     const audioFile = `./guilds/${guildId}/audio.mp4`;
-    const stream = await song.getStream();
     let resource = createAudioResource(audioFile, {
         inputType: StreamType.Raw
     });
@@ -163,7 +171,7 @@ async function play(interaction: ChatInputCommandInteraction, serverQueue: Queue
                 if (err) console.error(err);
             })
         } else {
-            stream.pipe(fs.createWriteStream(audioFile));
+            await prepAudio(interaction, serverQueue);
             await delay(2750);
         }
 
@@ -228,49 +236,42 @@ async function play(interaction: ChatInputCommandInteraction, serverQueue: Queue
     }
 
     // Get next song ready for improved performance
-    if (serverQueue.songs.length > 1) {
-        await prepAudio(interaction, serverQueue);
-    }
+    if (serverQueue.songs.length > 1) await prepAudio(interaction, serverQueue);
 }
 
 export async function execute(interaction: ChatInputCommandInteraction, serverQueue: Queue) {
     const arg = <string>interaction.options.getString('link');
     let song: Song;
+    let newQueue = false;
 
-    if (ytdl.validateURL(arg)) {
-        song = new Song(arg);
-        await song.addItem(serverQueue);
-    } else if (ytpl.validateID(arg)) {
-        const playlist = await ytpl(arg);
-        
-        for (let i = 0; playlist.items[i]; i++) {
-            const songLink = playlist.items[i].url;
-            song = new Song(songLink);
-            song.playlist = {
-                title: playlist.title,
-                url: playlist.url
-            }
-            song.addItem(serverQueue);
-        }
-    } else if (arg.includes('https://open.spotify.com/')) {
-        song = new Spotify(arg);
+    if (serverQueue.songs.length === 0)
+        newQueue = true;
+
+    if (ytdl.validateURL(arg) || arg.includes('https://open.spotify.com/track/'))  {
+        if (ytdl.validateURL(arg)) song = new Song(arg);
+        else song = new Spotify(arg);
+
         await song.addItem(serverQueue)
-            .catch(err => {
-                interaction.reply({
-                    content: 'Invalid link, please try again',
-                    ephemeral: true
-                })
-                console.error(err);
-            });
+        .catch(err => {
+            interaction.reply({
+                content: 'Invalid link, please try again',
+                ephemeral: true
+            })
+            console.error(err);
+        });
+    } else if (ytpl.validateID(arg) || arg.includes('https://open.spotify.com/album/') || arg.includes('https://open.spotify.com/playlist/')) {
+        await addPlaylist(interaction, serverQueue);
     } else 
         return await interaction.reply({
             content: 'Invalid url, please try again',
             ephemeral: true
         });
 
+    console.log(interaction.commandName);
+
     const lastSong = serverQueue.songs[serverQueue.songs.length - 1];
 
-    if (serverQueue.songs.length > 1) {
+    if (!newQueue) {
         if (serverQueue.songs.length >= 4 && serverQueue.buttons.shuffleButton.data.disabled) {
             let buttons = serverQueue.buttons;
             buttons.shuffleButton = buttons.shuffleButton.setDisabled();
@@ -280,7 +281,6 @@ export async function execute(interaction: ChatInputCommandInteraction, serverQu
         await updateMenuRow(serverQueue);
 
         if (lastSong.playlist?.url && lastSong.playlist?.title)
-            
             return await interaction.reply(`[${bold(lastSong.playlist.title)}](${lastSong.playlist.url}) has been added to the queue`);
         else
             return await interaction.reply(`${bold(lastSong.title)} has been added to the queue`);
